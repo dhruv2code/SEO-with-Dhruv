@@ -52,7 +52,7 @@ try {
   await call('Page.enable');
   await call('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false });
   await go('/');
-  assert.match(await evaluate('document.body.innerText'), /A clearer view of your growth/);
+  assert.match(await evaluate('document.body.innerText'), /A clearer view of\s+your growth/);
   assert.equal(await evaluate('document.querySelectorAll(".metric-card").length'), 8);
   await waitFor('!!document.querySelector(".overview-files .btn") && !document.querySelector(".overview-files .btn").disabled');
   await evaluate(`(() => {

@@ -51,7 +51,7 @@ export function OverviewFiles({ dashboard }) {
   }
 
   return (
-    <section className="panel overview-files" aria-labelledby="overview-files-title">
+    <section id="overview-files" className="panel overview-files" aria-labelledby="overview-files-title">
       <div className="panel-heading">
         <div>
           <h2 id="overview-files-title"><FolderOpen size={17}/>Your files <span className="count-badge">{files.length}</span></h2>

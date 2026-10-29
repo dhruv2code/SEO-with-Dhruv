@@ -5,7 +5,7 @@ import { compact, number } from '../lib/utils';
 export const chartModes = {
   clicks: { label: 'Organic clicks', keys: ['clicks'] }, impressions: { label: 'Organic impressions', keys: ['impressions'] }, position: { label: 'Average position', keys: ['position'] }, sessions: { label: 'Organic sessions', keys: ['sessions'] }, search: { label: 'Clicks vs. impressions', keys: ['clicks', 'impressions'] }, traffic: { label: 'Traffic vs. conversions', keys: ['sessions', 'conversions'] },
 };
-const colors = ['#7b65e8', '#46b9ac'];
+const colors = ['#5556e8', '#0d9488'];
 const labels = { clicks: 'Clicks', impressions: 'Impressions', position: 'Avg. position', sessions: 'Organic sessions', conversions: 'Conversions' };
 export function PerformanceChart({ dashboard, initialMode = 'search', title = 'Search performance' }) {
   const [mode, setMode] = useState(initialMode);
