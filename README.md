@@ -2,7 +2,30 @@
 
 A local SEO analytics workspace, built in phases from the supplied project brief.
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Fdhruv2code%2FSEO-with-Dhruv)
+
 **Current milestone: interactive frontend with automatic report import.** Upload a Google Search Console CSV or XLSX export to populate the dashboard with your own keyword and performance data. Synthetic demonstration data is used only when no valid report is active. The app does **not** connect to Google, run FastAPI, or save to SQLite yet. Google connection status remains disconnected; imported reports are not live synchronization.
+
+## Deploy on Render
+
+The repository includes a `render.yaml` Blueprint for a **Static Site**. Click **Deploy to Render** above, sign in, authorise GitHub repository access if requested, and review/create the Blueprint. Render installs frontend dependencies, runs the tests, builds Vite, and publishes `frontend/dist`. The Blueprint pins Node.js 24.19.0 and rewrites client-side routes to `index.html`, so refreshing `/keywords` and the other dashboard pages works.
+
+After the deployment succeeds, use the HTTPS URL shown in your Render dashboard. Subsequent pushes to `main` automatically deploy. No start command or environment secrets are needed for the current browser-based app.
+
+If setting it up manually, select **New → Static Site**, connect `dhruv2code/SEO-with-Dhruv`, and use:
+
+| Setting | Value |
+| --- | --- |
+| Branch | `main` |
+| Root directory | Leave empty (repository root) |
+| Build command | `npm --prefix frontend ci --include=dev && npm --prefix frontend test && npm --prefix frontend run build` |
+| Publish directory | `frontend/dist` |
+| Environment variable | `NODE_VERSION=24.19.0` |
+| Rewrite rule | `/*` → `/index.html`, action **Rewrite** |
+
+Uploads, active report selection, tracked keywords, and recommendation statuses remain in each visitor's browser. Localhost browser data does not transfer to the new Render origin: upload your report again on the deployed site. Visitors do not share uploaded reports. This deployment provides the existing dashboard and file importer; Google OAuth, FastAPI, and server-side database storage are still future phases.
+
+References: [Render Static Sites](https://render.com/docs/static-sites), [Blueprint configuration](https://render.com/docs/blueprint-spec), and [Deploy to Render button](https://render.com/docs/deploy-to-render).
 
 ## Run locally
 

@@ -1,0 +1,24 @@
+# Render Blueprint: deploy the current browser-based React application.
+services:
+  - type: web
+    name: seo-with-dhruv
+    runtime: static
+    repo: https://github.com/dhruv2code/SEO-with-Dhruv
+    branch: main
+    autoDeployTrigger: commit
+    buildCommand: npm --prefix frontend ci --include=dev && npm --prefix frontend test && npm --prefix frontend run build
+    staticPublishPath: frontend/dist
+    envVars:
+      - key: NODE_VERSION
+        value: 24.19.0
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
