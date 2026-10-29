@@ -1,0 +1,10 @@
+node_modules/
+.npm-cache/
+.qa/
+dist/
+.env
+.env.local
+.venv/
+__pycache__/
+*.db
+*.log
