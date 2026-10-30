@@ -103,11 +103,64 @@ function cellValue(cell) {
   return value;
 }
 
+export const isPerformanceFile = name => /\.(csv|xlsx|zip)$/i.test(name);
+
+function decodeReportText(bytes) {
+  const encoding = bytes[0] === 255 && bytes[1] === 254 ? 'utf-16le' : bytes[0] === 254 && bytes[1] === 255 ? 'utf-16be' : 'utf-8';
+  return new TextDecoder(encoding).decode(bytes);
+}
+
+// Read archive entries in bounded chunks. Nothing is extracted to the filesystem.
+function readCsvEntry(entry, budget) {
+  return new Promise((resolve, reject) => {
+    const chunks = []; let size = 0, stopped = false;
+    const stream = entry.internalStream('uint8array');
+    stream.on('data', chunk => {
+      if (stopped) return;
+      size += chunk.length;
+      if (size > budget) {
+        stopped = true; stream.pause();
+        reject(new Error('This ZIP expands beyond the 50 MB import limit. Export a smaller reporting period.'));
+      } else chunks.push(chunk);
+    });
+    stream.on('error', error => { if (!stopped) { stopped = true; reject(error); } });
+    stream.on('end', () => {
+      if (stopped) return;
+      const bytes = new Uint8Array(size); let offset = 0;
+      for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
+      resolve(bytes);
+    });
+    stream.resume();
+  });
+}
+
+async function parseZipReport(file) {
+  const { default: JSZip } = await import('jszip');
+  let archive;
+  try { archive = await JSZip.loadAsync(await file.blob.arrayBuffer()); }
+  catch { throw new Error('This ZIP could not be read. Upload an unencrypted Search Console ZIP export, or export it again.'); }
+  const entries = Object.values(archive.files).filter(entry => !entry.dir && /\.csv$/i.test(entry.name) && !entry.name.startsWith('__MACOSX/') && !entry.name.split('/').at(-1).startsWith('._'));
+  if (!entries.length) throw new Error('No CSV files were found inside this ZIP. Upload the ZIP exported by Search Console, or a CSV/XLSX performance report.');
+  if (entries.length > 64) throw new Error('This ZIP contains too many CSV files. Upload one Search Console export at a time.');
+  const tables = []; let budget = 50 * 1024 * 1024;
+  for (const entry of entries) {
+    let bytes;
+    try { bytes = await readCsvEntry(entry, budget); }
+    catch (error) { throw new Error(`Could not read ${entry.name}: ${error.message || 'export the ZIP again.'}`); }
+    budget -= bytes.length;
+    try { tables.push({ name: entry.name, rows: parseCSV(decodeReportText(bytes)) }); }
+    catch (error) { throw new Error(`${entry.name}: ${error.message}`); }
+  }
+  // Use the same multi-dimension logic as Excel: query, page, and date reports
+  // remain independent, so Countries/Devices do not inflate property totals.
+  return importTables(tables, file.name);
+}
+
 export async function parseReportFile(file) {
+  if (/\.zip$/i.test(file.name)) return parseZipReport(file);
   if (/\.csv$/i.test(file.name)) {
     const bytes = new Uint8Array(await file.blob.arrayBuffer());
-    const encoding = bytes[0] === 255 && bytes[1] === 254 ? 'utf-16le' : bytes[0] === 254 && bytes[1] === 255 ? 'utf-16be' : 'utf-8';
-    return importTables([{ name: file.name, rows: parseCSV(new TextDecoder(encoding).decode(bytes)) }], file.name);
+    return importTables([{ name: file.name, rows: parseCSV(decodeReportText(bytes)) }], file.name);
   }
   if (/\.xlsx$/i.test(file.name)) {
     const { default: ExcelJS } = await import('exceljs');
@@ -121,7 +174,7 @@ export async function parseReportFile(file) {
     });
     return importTables(tables, file.name);
   }
-  throw new Error('Automatic analytics supports .csv and .xlsx performance reports. Other files remain downloadable attachments.');
+  throw new Error('Automatic analytics supports .csv, .xlsx, and Search Console .zip exports. Other files remain downloadable attachments.');
 }
 
 export const missingMetrics = () => ({ clicks: null, impressions: null, ctr: null, position: null, sessions: null, users: null, engaged: null, conversions: null });

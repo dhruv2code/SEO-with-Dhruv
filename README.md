@@ -87,6 +87,12 @@ A standard GSC Queries export contains full-period keyword totals, not daily key
 
 GSC exports do not contain GA4 traffic or conversion metrics. Those cards show unavailable values when an imported GSC report is active. Sample traffic is never mixed with imported search data. PDF, images, and legacy `.xls` files are attachments; export CSV or `.xlsx` for automatic analytics. Comparison exports with nonstandard, period-prefixed column names should be re-exported as a normal GSC report.
 
+### Search Console ZIP exports
+
+You can insert the `.zip` file downloaded from Search Console directly into Overview. It is automatically opened in the browser: Queries, Pages, and Chart/Dates CSV files populate keywords, pages, metrics, recommendations, and available charts. Countries and Devices are treated as separate breakdowns and are not added to property totals. ZIP files already saved as attachments are read when the dashboard reloads; manual extraction or re-upload is not required.
+
+ZIP uploads also work in SEO Report Generator. CSVs may be nested in export folders and use UTF-8 or UTF-16. Unsupported/corrupt archives show an import error instead of generating results. Compressed uploads keep the existing 20 MB file limit; ZIP import allows up to 64 CSV entries and 50 MB of expanded CSV content. Files are read in memory, never extracted to a server or filesystem.
+
 ## SEO Report Generator
 
 Open **Tools → SEO Report Generator**, or `/report-generator`.
@@ -170,13 +176,14 @@ A production build checks all frontend route imports and JSX compilation.
 
 Phase 1 verification completed:
 
-- All 21 automated tests passed, including GSC multi-sheet XLSX parsing, CSV quoting/encoding, missing fields, invalid rows, date comparisons, real-data gating, report-source validation, and report generation.
+- All 25 automated tests passed, including GSC XLSX/ZIP parsing, CSV quoting/encoding, missing fields, invalid rows, date comparisons, real-data gating, report-source validation, and report generation.
 - The production build passed. Vite reports large bundles for charts and ExcelJS; the Excel library is loaded only when Excel export is requested.
 - Headless Chrome loaded all ten views, including SEO Report Generator, without uncaught JavaScript exceptions.
 - Browser checks confirmed keyword tracking persists across reloads, keyword history opens, recommendation completion persists, and mobile navigation opens/closes.
 - File browser checks cover file selection, drag-and-drop, persistence of actual file contents after reload, website isolation, and removal.
 - An actual multi-sheet XLSX upload was verified in Chrome: its exact totals, keywords, pages, and opportunities replace the demo; absent GA4 and comparison metrics stay unavailable; the report remains active after reload.
 - Report Generator browser checks verified an empty-data prompt, three-file CSV input, exact preview metrics, Unicode queries, a valid multipage PDF download, unchanged dashboard data, the existing imported source, and responsive mobile preview.
+- ZIP browser checks verify automatic import and exact totals, keyword display, reload persistence, PDF preview, and recovery of ZIP files previously stored as attachments.
 - Desktop routes and the mobile overview had no document-level horizontal overflow. Wide tables scroll inside their containers.
 - Desktop (1440px) and mobile (390px) screenshots were generated and visually reviewed.
 

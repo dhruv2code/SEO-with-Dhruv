@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { FileDown, FileText, Upload, Link2, CheckCircle2, LoaderCircle, Info, Eye, ShieldCheck } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { ReportDocument } from '../components/seo-report/ReportDocument';
-import { parseReportFile } from '../services/reportImport';
+import { isPerformanceFile, parseReportFile } from '../services/reportImport';
 import { MAX_FILE_SIZE, fileSize } from '../services/files';
 import { buildSeoReport, combineSeoReports } from '../services/seoReport';
 import './report-generator.css';
@@ -26,7 +26,7 @@ export function ReportGenerator({ dashboard }) {
     setReading(true); invalidate(); setParsed(null); setUploads([]);
     try {
       const chosen = Array.from(files);
-      if (chosen.some(file => !/\.(csv|xlsx)$/i.test(file.name))) throw new Error('Choose CSV or XLSX performance exports. PDF and image attachments cannot provide SEO metrics.');
+      if (chosen.some(file => !isPerformanceFile(file.name))) throw new Error('Choose ZIP, CSV, or XLSX performance exports. PDF and image attachments cannot provide SEO metrics.');
       if (chosen.some(file => file.size > MAX_FILE_SIZE)) throw new Error('Each report file must be 20 MB or smaller.');
       const reports = [];
       for (const file of chosen) reports.push(await parseReportFile({ name: file.name, blob: file }));
@@ -73,11 +73,11 @@ export function ReportGenerator({ dashboard }) {
       <form onSubmit={generate} className="generator-form">
         <label htmlFor="report-website">Website URL<input id="report-website" type="text" inputMode="url" autoComplete="url" placeholder="https://example.com" maxLength={2048} value={website} disabled={downloading} onChange={event => { setWebsite(event.target.value); invalidate(); }} required/></label>
         <fieldset disabled={downloading || reading} className="generator-sources"><legend>SEO data source</legend>
-          <label className={source === 'upload' ? 'selected' : ''}><input type="radio" name="report-source" value="upload" checked={source === 'upload'} onChange={() => { setSource('upload'); invalidate(); }}/><Upload size={18}/><span><strong>Upload SEO data</strong><small>CSV or Excel exports</small></span></label>
+          <label className={source === 'upload' ? 'selected' : ''}><input type="radio" name="report-source" value="upload" checked={source === 'upload'} onChange={() => { setSource('upload'); invalidate(); }}/><Upload size={18}/><span><strong>Upload SEO data</strong><small>ZIP, CSV, or Excel exports</small></span></label>
           <label className={`${source === 'existing' ? 'selected' : ''} ${!hasExisting ? 'unavailable' : ''}`}><input type="radio" name="report-source" value="existing" checked={source === 'existing'} disabled={!hasExisting} onChange={() => { setSource('existing'); if (dashboard.report.siteName) setWebsite(`https://${dashboard.report.siteName}`); invalidate(); }}/><CheckCircle2 size={18}/><span><strong>Use current report</strong><small>{hasExisting ? 'Your imported dashboard data' : 'No real report loaded'}</small></span></label>
           <div className="generator-gsc"><Link2 size={18}/><span><strong>Google Search Console</strong><small>Not connected</small></span><Link to="/settings">Settings ↗</Link></div>
         </fieldset>
-        {source === 'upload' ? <div className="generator-upload"><label htmlFor="generator-files"><Upload size={21}/><strong>{reading ? 'Reading your SEO data…' : 'Choose CSV / Excel files'}</strong><span>Use Queries, Pages, and Dates exports from the same reporting period, or one complete XLSX export.</span></label><input id="generator-files" type="file" accept=".csv,.xlsx" multiple disabled={reading || downloading} onChange={event => { uploadFiles(event.target.files); event.target.value = ''; }}/>{uploads.length > 0 && <ul>{uploads.map(file => <li key={file.name}><CheckCircle2 size={14}/><span>{file.name}</span><small>{fileSize(file.size)}</small></li>)}</ul>}<p>20 MB maximum per file. These uploads are used only for this report and do not change existing dashboard data.</p></div> : <div className="generator-existing"><CheckCircle2 size={17}/><div><strong>{hasExisting ? dashboard.report.filename : 'No real report is available'}</strong><p>{hasExisting ? 'Uses the active imported report and the applicable selected reporting period.' : 'Upload a report to generate a PDF. Sample dashboard metrics are never used.'}</p></div></div>}
+        {source === 'upload' ? <div className="generator-upload"><label htmlFor="generator-files"><Upload size={21}/><strong>{reading ? 'Reading your SEO data…' : 'Choose ZIP / CSV / Excel files'}</strong><span>Use a Search Console ZIP, a complete XLSX export, or Queries, Pages, and Dates CSVs from the same reporting period.</span></label><input id="generator-files" type="file" accept=".csv,.xlsx,.zip" multiple disabled={reading || downloading} onChange={event => { uploadFiles(event.target.files); event.target.value = ''; }}/>{uploads.length > 0 && <ul>{uploads.map(file => <li key={file.name}><CheckCircle2 size={14}/><span>{file.name}</span><small>{fileSize(file.size)}</small></li>)}</ul>}<p>20 MB maximum per file. These uploads are used only for this report and do not change existing dashboard data.</p></div> : <div className="generator-existing"><CheckCircle2 size={17}/><div><strong>{hasExisting ? dashboard.report.filename : 'No real report is available'}</strong><p>{hasExisting ? 'Uses the active imported report and the applicable selected reporting period.' : 'Upload a report to generate a PDF. Sample dashboard metrics are never used.'}</p></div></div>}
         {!hasExisting && !parsed && <div className="generator-data-prompt"><Info size={16}/><p>No real SEO data is available yet. Upload your Search Console export, or visit <Link to="/settings">connection settings</Link>. The current app has no active GSC connection.</p></div>}
         {error && !generated && <p className="generator-error" role="alert">{error}</p>}
         <div className="generator-actions"><span><ShieldCheck size={14}/>Processed locally in your browser</span><Button type="submit" disabled={reading || downloading}>{reading ? <LoaderCircle size={15} className="file-spinner"/> : <FileText size={15}/>}Generate Report</Button></div>

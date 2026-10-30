@@ -30,7 +30,7 @@ export function OverviewFiles({ dashboard }) {
       }
     }
     reports.reload(saved.map(file => file.id).reverse());
-    if (saved.length) setMessage(`${saved.length} ${saved.length === 1 ? 'file' : 'files'} saved for ${site.name}.`);
+    if (saved.length) setMessage(`${saved.length} ${saved.length === 1 ? 'file' : 'files'} added. Supported performance reports are imported automatically.`);
     setError(errors.join(' '));
     setBusy(false);
     if (input.current) input.current.value = '';
@@ -55,7 +55,7 @@ export function OverviewFiles({ dashboard }) {
       <div className="panel-heading">
         <div>
           <h2 id="overview-files-title"><FolderOpen size={17}/>Your files <span className="count-badge">{files.length}</span></h2>
-          <p>Insert a Search Console CSV or Excel export to automatically show your keywords and performance.</p>
+          <p>Insert a Search Console ZIP, CSV, or Excel export to automatically show your keywords and performance.</p>
         </div>
         <Button disabled={loading || busy} onClick={() => input.current?.click()}>
           {busy ? <LoaderCircle size={15} className="file-spinner"/> : <Upload size={15}/>}
@@ -73,7 +73,7 @@ export function OverviewFiles({ dashboard }) {
       >
         <span className="soft-icon"><Upload size={21}/></span>
         <strong>Drop your files here, or <span>browse files</span></strong>
-        <span>CSV and XLSX reports are analysed automatically · up to 20 MB each</span>
+        <span>ZIP, CSV, and XLSX reports are analysed automatically · up to 20 MB each</span>
       </button>
       {loading && <p className="files-feedback" role="status">Reading files and updating your performance…</p>}
       {message && <p className="files-feedback success" role="status">{message}</p>}
@@ -86,7 +86,7 @@ export function OverviewFiles({ dashboard }) {
               <div className="file-details"><strong title={file.name}>{file.name}</strong><span>{fileSize(file.size)} · Added {new Date(file.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                 {reports.results[file.id]?.report && <span className="file-import-success">{reports.activeId === file.id ? 'Active report' : 'Ready to analyse'} · {new Set(reports.results[file.id].report.queryRows.map(row => row.query)).size} keywords</span>}
                 {reports.results[file.id]?.error && <span className="file-import-error" role="alert">{reports.results[file.id].error}</span>}
-                {reports.results[file.id]?.attachment && <span>Attachment only · use a GSC CSV or XLSX export for analytics</span>}
+                {reports.results[file.id]?.attachment && <span>Attachment only · use a GSC ZIP, CSV, or XLSX export for analytics</span>}
               </div>
               {reports.results[file.id]?.report && reports.activeId !== file.id && <Button variant="outline" size="sm" disabled={loading || busy} onClick={() => reports.select(file.id)}>Use report</Button>}
               <Button variant="outline" size="icon" aria-label={`Download ${file.name}`} onClick={() => downloadFile(file)}><Download size={15}/></Button>
@@ -95,7 +95,7 @@ export function OverviewFiles({ dashboard }) {
           ))}
         </ul>
       )}
-      <div className="files-storage-note"><HardDrive size={13}/><span>CSV/XLSX performance reports update the dashboard automatically. Other files stay as attachments. Saved locally in this browser; clearing browser data removes files.</span></div>
+      <div className="files-storage-note"><HardDrive size={13}/><span>ZIP/CSV/XLSX performance reports update the dashboard automatically. ZIP contents are read locally; no manual extraction is needed. Saved in this browser; clearing browser data removes files.</span></div>
     </section>
   );
 }

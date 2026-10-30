@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { listFiles } from '../services/files';
-import { parseReportFile } from '../services/reportImport';
+import { isPerformanceFile, parseReportFile } from '../services/reportImport';
 
 const cache = new Map();
 const storageKey = siteId => `dhruv-active-report:${siteId}`;
@@ -16,7 +16,7 @@ export function useReportSource(siteId) {
       try {
         const files = await listFiles(siteId), results = {};
         for (const file of files) {
-          if (!/\.(csv|xlsx)$/i.test(file.name)) { results[file.id] = { attachment: true }; continue; }
+          if (!isPerformanceFile(file.name)) { results[file.id] = { attachment: true }; continue; }
           if (!cache.has(file.id)) cache.set(file.id, parseReportFile(file).then(report => ({ report })).catch(error => ({ error: error.message })));
           results[file.id] = await cache.get(file.id);
         }
