@@ -87,6 +87,23 @@ A standard GSC Queries export contains full-period keyword totals, not daily key
 
 GSC exports do not contain GA4 traffic or conversion metrics. Those cards show unavailable values when an imported GSC report is active. Sample traffic is never mixed with imported search data. PDF, images, and legacy `.xls` files are attachments; export CSV or `.xlsx` for automatic analytics. Comparison exports with nonstandard, period-prefixed column names should be re-exported as a normal GSC report.
 
+## SEO Report Generator
+
+Open **Tools → SEO Report Generator**, or `/report-generator`.
+
+1. Enter the website URL.
+2. Upload CSV/XLSX performance data, or select **Use current report** when a real imported report is active in the dashboard. Multiple CSVs may supply one Queries, one Pages, and one Dates export from the same reporting period. A single full GSC Excel export also works.
+3. Click **Generate Report** to preview the metrics, charts, top 10 keywords, top 10 pages, up to six prioritised recommendations, reporting period, source files, and methodology.
+4. Click **Download PDF** for an A4 report with automatic pagination and page numbers.
+
+The generator never uses demo dashboard data. It prompts for real data when none is available. Missing page/query/date/position fields are explicitly shown as unavailable; it does not invent landing pages, ranking changes, or a reporting period. Known website mismatches and duplicate dimension exports are rejected. Recommendations reuse the existing metric-based rules.
+
+The current app has no active Google OAuth connection, so the GSC source is marked **Not connected** and links to Settings. Uploaded GSC exports and the existing real imported report are supported now; this tool does not add or pretend to provide live Google integration.
+
+Files selected inside the generator are used only for its current preview. They do not replace the dashboard's active source, upload files to a server, or modify tracked keywords and recommendation statuses. PDF creation runs locally. The PDF uses high-resolution rendered report blocks to preserve charts and Unicode keyword text; its report content is image-based rather than selectable text. Tables/recommendations are kept together when paginating. Very large individual blocks scale down to fit A4.
+
+The new route and PDF libraries are loaded on demand. Existing tools, layout, theme, imports, and analytics remain in place. The PDF dependencies are `jspdf` and `html2canvas`; report parsing, charts, icons, controls, and routing reuse the existing stack.
+
 ## Code organization
 
 ```text
@@ -153,12 +170,13 @@ A production build checks all frontend route imports and JSX compilation.
 
 Phase 1 verification completed:
 
-- All 14 automated tests passed, including GSC multi-sheet XLSX parsing, CSV quoting/encoding, missing fields, invalid rows, and date comparisons.
+- All 21 automated tests passed, including GSC multi-sheet XLSX parsing, CSV quoting/encoding, missing fields, invalid rows, date comparisons, real-data gating, report-source validation, and report generation.
 - The production build passed. Vite reports large bundles for charts and ExcelJS; the Excel library is loaded only when Excel export is requested.
-- Headless Chrome loaded all nine views without uncaught JavaScript exceptions.
+- Headless Chrome loaded all ten views, including SEO Report Generator, without uncaught JavaScript exceptions.
 - Browser checks confirmed keyword tracking persists across reloads, keyword history opens, recommendation completion persists, and mobile navigation opens/closes.
 - File browser checks cover file selection, drag-and-drop, persistence of actual file contents after reload, website isolation, and removal.
 - An actual multi-sheet XLSX upload was verified in Chrome: its exact totals, keywords, pages, and opportunities replace the demo; absent GA4 and comparison metrics stay unavailable; the report remains active after reload.
+- Report Generator browser checks verified an empty-data prompt, three-file CSV input, exact preview metrics, Unicode queries, a valid multipage PDF download, unchanged dashboard data, the existing imported source, and responsive mobile preview.
 - Desktop routes and the mobile overview had no document-level horizontal overflow. Wide tables scroll inside their containers.
 - Desktop (1440px) and mobile (390px) screenshots were generated and visually reviewed.
 

@@ -1,7 +1,7 @@
 // Local browser smoke check using Chrome's DevTools protocol and Node 22+.
 // Uses a separate profile, binds only to loopback, and never opens a visible window.
 import { createServer } from 'node:http';
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { resolve, extname } from 'node:path';
 import assert from 'node:assert/strict';
@@ -46,7 +46,7 @@ try {
   };
   const call = (method, params = {}) => new Promise((resolve, reject) => { const id = ++sequence; pending.set(id, { resolve, reject }); socket.send(JSON.stringify({ id, method, params })); });
   const evaluate = async expression => { const result = await call('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }); if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text); return result.result.value; };
-  const waitFor = async expression => { for (let i = 0; i < 100; i++) { if (await evaluate(expression)) return; await delay(100); } throw new Error(`Timed out: ${expression}`); };
+  const waitFor = async (expression, attempts = 100) => { for (let i = 0; i < attempts; i++) { if (await evaluate(expression)) return; await delay(100); } throw new Error(`Timed out: ${expression}`); };
   const go = async path => { await call('Page.navigate', { url: base + path }); await waitFor('!!document.querySelector("h1")'); await delay(150); };
   await call('Runtime.enable');
   await call('Page.enable');
@@ -100,12 +100,53 @@ try {
   const desktop = await call('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true });
   await writeFile(resolve(qa, 'desktop.png'), Buffer.from(desktop.data, 'base64'));
   console.log('PASS overview: eight KPI cards and desktop screenshot');
-  for (const route of ['/keywords', '/lost-keywords', '/opportunities', '/pages', '/recommendations', '/gsc', '/ga4', '/settings']) {
+  for (const route of ['/keywords', '/lost-keywords', '/opportunities', '/pages', '/recommendations', '/gsc', '/ga4', '/settings', '/report-generator']) {
     await go(route);
     assert.equal(await evaluate('document.body.innerText.includes("The workspace could not load")'), false);
     assert.equal(await evaluate('document.body.scrollWidth > innerWidth + 1'), false, `Horizontal overflow: ${route}`);
     console.log('PASS route:', route);
   }
+  await go('/report-generator');
+  await evaluate(`(() => {
+    const input = document.querySelector('#report-website');
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'https://reports.example');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  })()`);
+  await evaluate('document.querySelector(".generator-actions button").click()');
+  await waitFor('!!document.querySelector(".generator-error")');
+  assert.match(await evaluate('document.querySelector(".generator-error").innerText'), /No real SEO data/);
+  assert.equal(await evaluate('document.querySelectorAll(".generator-preview").length'), 0);
+  await evaluate(`(() => {
+    const transfer = new DataTransfer();
+    transfer.items.add(new File(['Query,Clicks,Impressions,Position\\nवित्तीय प्रशिक्षण,100,10000,6\\nfinance training,150,5000,12'], 'Queries.csv', { type: 'text/csv' }));
+    transfer.items.add(new File(['Page,Clicks,Impressions,Position\\nhttps://reports.example/course,250,15000,8'], 'Pages.csv', { type: 'text/csv' }));
+    transfer.items.add(new File(['Date,Clicks,Impressions,Position\\n2026-09-01,150,6000,7\\n2026-09-02,100,9000,8'], 'Dates.csv', { type: 'text/csv' }));
+    const input = document.querySelector('#generator-files'); input.files = transfer.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  await waitFor('document.querySelectorAll(".generator-upload li").length === 3');
+  await evaluate('document.querySelector(".generator-actions button").click()');
+  await waitFor('!!document.querySelector(".generator-preview .report-cover")');
+  assert.equal(await evaluate('document.querySelector(".report-kpi-clicks strong").innerText'), '250');
+  assert.match(await evaluate('document.querySelector(".generator-preview").innerText'), /वित्तीय प्रशिक्षण/);
+  assert.match(await evaluate('document.querySelector(".generator-preview").innerText'), /reports.example\/course/);
+  const downloads = resolve(qa, 'downloads'); await mkdir(downloads, { recursive: true });
+  await call('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: downloads });
+  await evaluate('document.querySelector(".generator-preview-heading button").click()');
+  await waitFor('!!document.querySelector(".generator-success") || !!document.querySelector(".generator-error")', 900);
+  assert.equal(await evaluate('document.querySelector(".generator-error")?.innerText || ""'), '');
+  let downloaded;
+  for (let i = 0; i < 100; i++) { downloaded = (await readdir(downloads)).find(file => file.startsWith('seo-report-reports.example-') && file.endsWith('.pdf')); if (downloaded) break; await delay(100); }
+  assert.ok(downloaded, 'A PDF file should be downloaded');
+  const pdf = await readFile(resolve(downloads, downloaded));
+  assert.equal(pdf.subarray(0, 5).toString(), '%PDF-');
+  assert.ok(pdf.length > 10000, 'PDF should contain rendered report content');
+  assert.ok((pdf.toString('latin1').match(/\/Type\s*\/Page\b/g) || []).length >= 2, 'Report should paginate');
+  const reportScreenshot = await call('Page.captureScreenshot', { format: 'png' });
+  await writeFile(resolve(qa, 'report-preview.png'), Buffer.from(reportScreenshot.data, 'base64'));
+  await go('/');
+  assert.equal(await evaluate('document.querySelector(".metric-main strong").innerText'), '20,502');
+  console.log('PASS report generator: no demo fallback, multi-CSV preview, Unicode queries, genuine multipage PDF download, existing dashboard unchanged');
   await go('/keywords');
   await evaluate('document.querySelector(".bookmark").click()');
   await delay(100);
@@ -167,6 +208,15 @@ try {
   const mobile = await call('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true });
   await writeFile(resolve(qa, 'mobile.png'), Buffer.from(mobile.data, 'base64'));
   console.log('PASS mobile: menu, no document overflow, and screenshot');
+  await go('/report-generator');
+  assert.equal(await evaluate('document.querySelector("input[value=existing]").checked'), true);
+  await evaluate('document.querySelector(".generator-actions button").click()');
+  await waitFor('!!document.querySelector(".generator-preview .report-cover")');
+  assert.equal(await evaluate('document.querySelector(".report-kpi-clicks strong").innerText'), '180');
+  assert.equal(await evaluate('document.body.scrollWidth > innerWidth + 1'), false);
+  const reportMobile = await call('Page.captureScreenshot', { format: 'png' });
+  await writeFile(resolve(qa, 'report-mobile.png'), Buffer.from(reportMobile.data, 'base64'));
+  console.log('PASS report generator: existing real report source and responsive mobile preview');
   assert.deepEqual(exceptions, [], 'Uncaught browser exceptions');
   console.log('PASS no uncaught browser exceptions');
 } finally {

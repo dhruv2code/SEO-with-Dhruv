@@ -1,4 +1,5 @@
 /* Shared dashboard identity: ink navy, electric indigo, and deep teal. */
+.nav-tools-label { padding: 18px 13px 10px; font-size: 9px; color: #8499bc; letter-spacing: 1.8px; }
 :root {
   --primary: #5556e8;
   --border: #dfe5f0;
