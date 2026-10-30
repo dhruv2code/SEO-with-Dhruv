@@ -107,6 +107,46 @@ try {
     assert.equal(await evaluate('document.body.scrollWidth > innerWidth + 1'), false, `Horizontal overflow: ${route}`);
     console.log('PASS route:', route);
   }
+  await go('/keywords');
+  await waitFor('!!document.querySelector(".brand-filter-controls select")');
+  await evaluate('document.querySelector(".brand-filter-controls button").click()');
+  await waitFor('!!document.querySelector("#brand-keyword-terms")');
+  await evaluate(`(() => {
+    const input = document.querySelector('#brand-keyword-terms');
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, 'seo with dhruv, dhruvseo');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  })()`);
+  await evaluate('document.querySelector("[role=dialog] form").requestSubmit()');
+  await waitFor('!document.querySelector("[role=dialog]")');
+  const setBrandMode = mode => evaluate(`(() => { const select = document.querySelector('[aria-label="Brand keyword filter"]'); select.value = ${JSON.stringify(mode)}; select.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await setBrandMode('only');
+  await waitFor('document.querySelectorAll(".keyword-name").length === 1');
+  assert.equal(await evaluate('document.querySelector(".keyword-name").innerText'), 'seo with dhruv');
+  await go('/keywords');
+  await waitFor('document.querySelector(".brand-filter-controls select")?.value === "only"');
+  await setBrandMode('exclude');
+  assert.match(await evaluate('document.querySelector(".table-pagination").innerText'), /of 23 keywords/);
+  const brandDownloads = resolve(qa, `brand-downloads-${Date.now()}`); await mkdir(brandDownloads, { recursive: true });
+  await call('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: brandDownloads });
+  await evaluate('document.querySelector(".export-menu").open = true; document.querySelector(".export-menu button").click()');
+  let brandCsv;
+  for (let i = 0; i < 100; i++) { brandCsv = (await readdir(brandDownloads)).find(file => file.endsWith('.csv')); if (brandCsv) break; await delay(100); }
+  assert.ok(brandCsv);
+  const brandExport = await readFile(resolve(brandDownloads, brandCsv), 'utf8');
+  assert.equal(brandExport.includes('seo with dhruv'), false);
+  assert.equal(brandExport.trim().split('\r\n').length, 24);
+  await call('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  assert.equal(await evaluate('document.body.scrollWidth > innerWidth + 1'), false);
+  await call('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false });
+  await go('/');
+  await evaluate(`(() => { const select = document.querySelector('.website-selector select'); select.value = 'journal'; select.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await evaluate(`document.querySelector('a[href="/keywords"]').click()`);
+  await waitFor('!!document.querySelector(".brand-filter-controls select")');
+  assert.equal(await evaluate('document.querySelector(".brand-filter-controls select").value'), 'all');
+  assert.equal(await evaluate('document.querySelector(".brand-filter-controls option[value=exclude]").disabled'), true);
+  await go('/keywords');
+  await setBrandMode('all');
+  console.log('PASS brand filters: configured terms, include/exclude, reload persistence, filtered CSV download, website isolation, mobile layout');
   await go('/report-generator');
   await evaluate(`(() => {
     const input = document.querySelector('#report-website');
