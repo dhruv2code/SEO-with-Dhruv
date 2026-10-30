@@ -60,7 +60,7 @@ The production preview uses http://127.0.0.1:4173. Stop a server with Ctrl+C. Th
 - Rolling 7-, 28-, and 90-day presets and custom date ranges. Previous periods always have exactly the same number of days. Turn comparison columns and KPI deltas off with Compare.
 - Two isolated sample websites, each with 200 days of deterministic synthetic data. The dataset ends three days before the current date to illustrate a reporting delay.
 - Searchable and sortable keyword tables, numerical filters, pagination, seven keyword tabs, filtered CSV and real `.xlsx` Excel downloads.
-- Branded keyword filtering: open **Keyword Performance → Brand terms**, add brand names, abbreviations, and spelling variations separated by commas or new lines, then choose **Exclude branded keywords** or **Branded keywords only**. Terms and the selected mode are saved per website in the browser. Matching ignores case and punctuation and recognises joined brand words. The filter applies to full keyword tables and their CSV/Excel exports; overview metrics and PDF reports continue to describe the full imported report.
+- Branded keyword filtering: open **Keyword Performance** and click **Exclude branded keywords**. Brand terms are detected from the current website domain, spaced name variants, and abbreviations observed alongside the full brand phrase. Click again to restore all keywords. **More options** includes branded-only filtering and optional extra brand terms. Settings are saved per website in the browser, and CSV/Excel exports follow the filter. Automatic detection can be refined with additional spellings; overview metrics and PDF reports describe the full imported report.
 - Click any keyword to inspect its average-position history; open its associated sample landing page separately.
 - Bookmark keywords or manually add them to tracking. Manually entered terms without observations display “No data”; tracking never fabricates metrics.
 - Loss analysis separates position decline, missing visibility, click loss, impression loss, and top-3/10/20 boundary crossings.
@@ -177,7 +177,7 @@ A production build checks all frontend route imports and JSX compilation.
 
 Phase 1 verification completed:
 
-- All 30 automated tests passed, including brand phrase/abbreviation matching, GSC XLSX/ZIP parsing, comparison column pairing, CSV quoting/encoding and metadata, missing fields, invalid rows, date comparisons, real-data gating, report-source validation, and report generation.
+- All 32 automated tests passed, including brand phrase/abbreviation matching, GSC XLSX/ZIP parsing, comparison column pairing, CSV quoting/encoding and metadata, missing fields, invalid rows, date comparisons, real-data gating, report-source validation, and report generation.
 - The production build passed. Vite reports large bundles for charts and ExcelJS; the Excel library is loaded only when Excel export is requested.
 - Headless Chrome loaded all ten views, including SEO Report Generator, without uncaught JavaScript exceptions.
 - Browser checks confirmed keyword tracking persists across reloads, keyword history opens, recommendation completion persists, and mobile navigation opens/closes.

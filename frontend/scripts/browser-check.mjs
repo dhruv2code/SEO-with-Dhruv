@@ -109,7 +109,8 @@ try {
   }
   await go('/keywords');
   await waitFor('!!document.querySelector(".brand-filter-controls select")');
-  await evaluate('document.querySelector(".brand-filter-controls button").click()');
+  await evaluate('document.querySelector(".brand-filter-options").open = true');
+  await evaluate('document.querySelector(".brand-edit-terms").click()');
   await waitFor('!!document.querySelector("#brand-keyword-terms")');
   await evaluate(`(() => {
     const input = document.querySelector('#brand-keyword-terms');
@@ -143,7 +144,7 @@ try {
   await evaluate(`document.querySelector('a[href="/keywords"]').click()`);
   await waitFor('!!document.querySelector(".brand-filter-controls select")');
   assert.equal(await evaluate('document.querySelector(".brand-filter-controls select").value'), 'all');
-  assert.equal(await evaluate('document.querySelector(".brand-filter-controls option[value=exclude]").disabled'), true);
+  assert.equal(await evaluate('document.querySelector(".brand-filter-controls option[value=exclude]").disabled'), false);
   await go('/keywords');
   await setBrandMode('all');
   console.log('PASS brand filters: configured terms, include/exclude, reload persistence, filtered CSV download, website isolation, mobile layout');
@@ -342,6 +343,21 @@ try {
     assert.equal(await evaluate('document.querySelectorAll("tbody tr").length'), expected.pages.length);
     await go('/');
     await waitFor(`document.querySelector('.metric-main strong')?.innerText === ${JSON.stringify(expected.current.clicks.toLocaleString('en-IN'))}`);
+    await go('/keywords');
+    await evaluate('document.querySelector(".brand-filter-controls button").click()');
+    await waitFor('document.querySelector(".brand-filter-controls button")?.getAttribute("aria-pressed") === "true"');
+    const { detectBrandTerms, createBrandMatcher } = await import('../src/lib/brandKeywords.js');
+    const matcher = createBrandMatcher(detectBrandTerms(report.siteName, report.queryRows.map(row => row.query)).join('\n'));
+    const hidden = new Set(report.queryRows.filter(row => matcher(row.query)).map(row => row.query)).size;
+    assert.ok(hidden > 0, 'Website detection should recognise real branded searches');
+    const remaining = new Set(report.queryRows.map(row => row.query)).size - hidden;
+    assert.match(await evaluate('document.querySelector(".table-pagination").innerText'), new RegExp(`of ${remaining} keywords`));
+    assert.equal(await evaluate('!!document.querySelector("[role=dialog]")'), false);
+    await go('/keywords');
+    assert.equal(await evaluate('document.querySelector(".brand-filter-controls button").getAttribute("aria-pressed")'), 'true');
+    await evaluate('document.querySelector(".brand-filter-controls button").click()');
+    assert.match(await evaluate('document.querySelector(".table-pagination").innerText'), new RegExp(`of ${report.queryRows.length} keywords`));
+    console.log(`PASS one-click branded exclusion: ${hidden} branded keywords removed without setup, reload persistence, one-click restore`);
     console.log(`PASS actual export: ${report.queryRows.length} keywords, ${report.pageRows.length} pages, accurate totals, reload persistence`);
   }
   assert.deepEqual(exceptions, [], 'Uncaught browser exceptions');

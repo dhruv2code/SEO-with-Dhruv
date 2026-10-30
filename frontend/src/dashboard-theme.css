@@ -144,3 +144,6 @@ td { font-size: 12px; color: #4b607f; padding-top: 17px; padding-bottom: 17px; b
 .brand-keyword-filter > p, .brand-terms-help { color: #627895; font-size: 11px; line-height: 1.6; margin-top: 8px; overflow-wrap: anywhere; }
 .brand-terms-input { display: block; width: 100%; margin-top: 8px; padding: 11px; border: 1px solid #dce3ef; border-radius: 6px; color: #3f597e; background: white; resize: vertical; font: inherit; font-size: 13px; }
 .brand-terms-input:focus { outline: 2px solid #dddfff; border-color: #5556e8; }
+.brand-filter-options summary { cursor: pointer; color: #627895; font-size: 11px; padding: 8px 0; }
+.brand-filter-options[open] { flex-basis: 100%; }
+.brand-filter-options select { width: fit-content; }

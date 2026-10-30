@@ -9,7 +9,7 @@ import { BrandKeywordFilter, useBrandKeywordFilter } from './BrandKeywordFilter'
 const tabs = ['All keywords', 'Top performing', 'Improving', 'Declining', 'High impressions', 'Low CTR', 'Tracked'];
 export function Movement({ value }) { if (value === null || value === undefined) return <span className="muted">—</span>; return <span className={`movement ${value > 0.5 ? 'positive' : value < -0.5 ? 'negative' : 'muted'}`}>{value > 0.5 ? <ArrowUpRight size={13}/> : value < -0.5 ? <ArrowDownRight size={13}/> : null}{Math.abs(value).toFixed(1)}</span>; }
 export function KeywordTable({ dashboard, compact = false, rows, lost = false, initialTab = 'All keywords', title = 'Keyword performance', pageFilter }) {
-  const brand = useBrandKeywordFilter(dashboard.site.name);
+  const brand = useBrandKeywordFilter(dashboard.site.name, dashboard.keywords);
   const [tab, setTab] = useState(initialTab), [search, setSearch] = useState(''), [sort, setSort] = useState({ key: lost ? 'change' : 'clicks', asc: lost }), [page, setPage] = useState(1), [pageSize, setPageSize] = useState(10);
   const [showFilters, setShowFilters] = useState(false), [filters, setFilters] = useState({ position: '', clicks: '', impressions: '', ctr: '' }), [history, setHistory] = useState(null), [addOpen, setAddOpen] = useState(false), [manual, setManual] = useState(''), [exporting, setExporting] = useState(false), [error, setError] = useState('');
   const data = useMemo(() => {
