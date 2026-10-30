@@ -11,6 +11,9 @@ export function DateRange({ dashboard }) {
   const max = imported ? dashboard.report.range?.end : latestDate;
   const min = imported ? dashboard.report.range?.start : addDays(latestDate, -99);
   const days = Math.round((new Date(dashboard.range.end) - new Date(dashboard.range.start)) / 86400000) + 1;
+  // Undated/aggregate reports cannot use date presets. Do not evaluate those
+  // hidden controls: addDays(undefined) throws even when the dialog is closed.
+  if (locked) return <Button variant="outline" className="date-button" disabled title="This export contains full-period totals. Export daily data to filter dates."><CalendarDays size={15}/>{dashboard.report.range ? `${min} – ${max}` : 'Full report · dates not included'}</Button>;
   const apply = range => {
     if (!range.start || !range.end || range.start > range.end) { setError('Choose a valid start and end date.'); return; }
     if (range.end > max || range.start < min) { setError(`Choose dates between ${min} and ${max}.`); return; }

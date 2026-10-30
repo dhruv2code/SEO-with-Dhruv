@@ -52,6 +52,7 @@ try {
   await call('Page.enable');
   await call('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false });
   await go('/');
+  if (!process.env.SEO_IMPORT_CHECK_ONLY) {
   assert.match(await evaluate('document.body.innerText'), /A clearer view of\s+your growth/);
   assert.equal(await evaluate('document.querySelectorAll(".metric-card").length'), 8);
   await waitFor('!!document.querySelector(".overview-files .btn") && !document.querySelector(".overview-files .btn").disabled');
@@ -260,6 +261,49 @@ try {
   const reportMobile = await call('Page.captureScreenshot', { format: 'png' });
   await writeFile(resolve(qa, 'report-mobile.png'), Buffer.from(reportMobile.data, 'base64'));
   console.log('PASS report generator: existing real report source and responsive mobile preview');
+  await go('/');
+  await waitFor('!!document.querySelector(".overview-files .btn") && !document.querySelector(".overview-files .btn").disabled');
+  await evaluate(`(() => {
+    const transfer = new DataTransfer();
+    transfer.items.add(new File(['Top queries,Last 3 months Clicks,Previous 3 months Clicks,Last 3 months Impressions,Previous 3 months Impressions,Last 3 months Position\\ncomparison keyword,42,900,4200,90000,6'], 'comparison.csv', { type: 'text/csv' }));
+    const input = document.querySelector('.overview-file-input'); input.files = transfer.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  await waitFor('document.querySelector(".metric-main strong")?.innerText === "42"');
+  assert.equal(await evaluate('document.querySelector(".date-button").disabled'), true);
+  assert.match(await evaluate('document.querySelector(".date-button").innerText'), /dates not included/);
+  assert.match(await evaluate('document.querySelector(".performance-panel").innerText'), /No daily data available/);
+  await go('/');
+  await waitFor('document.querySelector(".metric-main strong")?.innerText === "42"');
+  console.log('PASS undated comparison export: current period metrics, disabled date picker, honest chart empty state, reload persistence');
+  }
+  // Optional local regression check with a real export, without committing its data.
+  if (process.env.SEO_IMPORT_CHECK_FILE) {
+    const { parseReportFile, deriveReport } = await import('../src/services/reportImport.js');
+    const path = resolve(process.env.SEO_IMPORT_CHECK_FILE);
+    const report = await parseReportFile({ name: path.split(/[\\/]/).at(-1), blob: new Blob([await readFile(path)]) });
+    const expected = deriveReport(report, report.range || { start: '2026-01-01', end: '2026-12-31' }, 'daily');
+    await go('/');
+    await waitFor('!!document.querySelector(".overview-files .btn") && !document.querySelector(".overview-files .btn").disabled');
+    const { root: doc } = await call('DOM.getDocument');
+    const { nodeId: input } = await call('DOM.querySelector', { nodeId: doc.nodeId, selector: '.overview-file-input' });
+    await call('DOM.setFileInputFiles', { nodeId: input, files: [path] });
+    try {
+      await waitFor(`document.querySelector('.metric-main strong')?.innerText === ${JSON.stringify(expected.current.clicks.toLocaleString('en-IN'))}`, 300);
+    } catch (error) {
+      console.log(await evaluate('JSON.stringify({metrics:[...document.querySelectorAll(".metric-main strong")].map(el=>el.innerText),files:document.querySelector(".overview-files")?.innerText,notice:document.querySelector(".report-notice")?.innerText})'));
+      throw error;
+    }
+    assert.match(await evaluate('document.querySelector(".file-import-success").innerText'), new RegExp(`${report.queryRows.length} keywords`));
+    await go('/keywords');
+    assert.ok(await evaluate('document.querySelectorAll(".keyword-name").length > 0'));
+    await go('/pages');
+    assert.equal(await evaluate('document.body.innerText.includes("The workspace could not load")'), false);
+    assert.equal(await evaluate('document.querySelectorAll("tbody tr").length'), expected.pages.length);
+    await go('/');
+    await waitFor(`document.querySelector('.metric-main strong')?.innerText === ${JSON.stringify(expected.current.clicks.toLocaleString('en-IN'))}`);
+    console.log(`PASS actual export: ${report.queryRows.length} keywords, ${report.pageRows.length} pages, accurate totals, reload persistence`);
+  }
   assert.deepEqual(exceptions, [], 'Uncaught browser exceptions');
   console.log('PASS no uncaught browser exceptions');
 } finally {

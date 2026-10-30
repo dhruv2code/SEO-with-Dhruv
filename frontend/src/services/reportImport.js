@@ -11,8 +11,22 @@ const aliases = {
 // CSV with quoted delimiters, escaped quotes, embedded newlines, BOM and CRLF.
 export function parseCSV(text) {
   text = text.replace(/^\uFEFF/, '');
-  const line = text.split(/\r?\n/).find(value => value.trim() && !value.startsWith('#')) || '';
-  const delimiter = [',', ';', '\t'].sort((a, b) => line.split(b).length - line.split(a).length)[0];
+  const separator = text.match(/^sep=([,;\t])\r?\n/i);
+  if (separator) text = text.slice(separator[0].length);
+  // Metadata can precede the header. Inspect actual header fields rather than
+  // guessing from commas in a report title or inside quoted values.
+  const lines = text.split(/\r?\n/, 20).filter(value => value.trim());
+  const candidates = [',', ';', '\t'].map(delimiter => {
+    let score = 0;
+    for (const line of lines) {
+      const fields = line.split(new RegExp(`${delimiter === '\t' ? '\t' : delimiter}(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)`)).map(value => value.replace(/^\"|\"$/g, ''));
+      const map = headerMap(fields);
+      const supported = map.clicks >= 0 && map.impressions >= 0 && (map.query >= 0 || map.page >= 0 || map.date >= 0);
+      score = Math.max(score, supported ? 10000 + fields.length : fields.length);
+    }
+    return { delimiter, score };
+  });
+  const delimiter = separator?.[1] || candidates.sort((a, b) => b.score - a.score)[0].delimiter;
   const rows = []; let row = [], cell = '', quoted = false;
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
@@ -53,18 +67,50 @@ function validURL(value) {
 }
 
 function headerMap(row) {
-  return Object.fromEntries(Object.entries(aliases).map(([field, names]) => [field, row.findIndex(value => names.some(name => key(name) === key(value)))]));
+  const exact = Object.fromEntries(Object.entries(aliases).map(([field, names]) => [field, row.findIndex(value => names.some(name => key(name) === key(value)))]));
+  if (exact.clicks >= 0 && exact.impressions >= 0) return exact;
+  // Comparison exports attach the period to each metric. Pair metrics only
+  // when their period labels agree; never import a Difference column as traffic.
+  const periods = new Map();
+  row.forEach((value, index) => {
+    const heading = String(value ?? '').trim();
+    if (/\b(difference|diff|delta|change)\b|%/i.test(heading)) return;
+    for (const field of ['clicks', 'impressions', 'position']) {
+      for (const alias of [...aliases[field]].sort((a, b) => b.length - a.length)) {
+        const match = heading.match(new RegExp(`^(.*?)\\b${alias.replace(/ /g, '\\s+')}\\b(.*?)$`, 'i'));
+        if (!match) continue;
+        const label = `${match[1]} ${match[2]}`.replace(/[()[\]:]/g, ' ').replace(/\s+/g, ' ').trim();
+        if (!label) break;
+        const id = key(label);
+        if (!periods.has(id)) periods.set(id, { label });
+        const period = periods.get(id);
+        if (period[field] === undefined) period[field] = index;
+        break;
+      }
+    }
+  });
+  const complete = [...periods.values()].filter(period => period.clicks !== undefined && period.impressions !== undefined);
+  // Prefer an explicitly current period even when the previous period comes first.
+  const priority = label => /\b(previous|prior)\b/i.test(label) ? 2 : /\b(current|latest|last)\b/i.test(label) ? 0 : 1;
+  complete.sort((a, b) => priority(a.label) - priority(b.label));
+  const selected = complete[0];
+  return selected ? { ...exact, clicks: selected.clicks, impressions: selected.impressions, position: selected.position ?? -1, period: selected.label } : exact;
 }
 
 export function importTables(tables, filename = 'report') {
-  const queryRows = [], pageRows = [], dateRows = [], warnings = [];
+  const queryRows = [], pageRows = [], dateRows = [], warnings = [], diagnostics = [];
   for (const { name, rows } of tables) {
     let headerIndex = -1, columns;
     for (let i = 0; i < Math.min(rows.length, 20); i++) {
       const map = headerMap(rows[i]);
       if (map.clicks >= 0 && map.impressions >= 0 && (map.query >= 0 || map.page >= 0 || map.date >= 0)) { headerIndex = i; columns = map; break; }
     }
-    if (headerIndex < 0) continue; // Countries/devices/filters are separate dimensions, not additional traffic.
+    if (headerIndex < 0) {
+      const candidate = rows.slice(0, 20).find(row => { const map = headerMap(row); return map.query >= 0 || map.page >= 0 || map.date >= 0; }) || rows[0];
+      if (candidate) diagnostics.push(`${name}: headings ${candidate.slice(0, 12).map(value => String(value ?? '').slice(0, 100)).join(' | ')}`);
+      continue; // Countries/devices/filters are separate dimensions, not additional traffic.
+    }
+    if (columns.period) warnings.push(`${name}: showing ${columns.period}. Other comparison periods and difference columns are excluded.`);
     const destination = columns.query >= 0 ? queryRows : columns.page >= 0 ? pageRows : dateRows;
     let skipped = 0;
     for (const row of rows.slice(headerIndex + 1)) {
@@ -78,8 +124,9 @@ export function importTables(tables, filename = 'report') {
       destination.push({ clicks, impressions, position: position > 0 ? position : null, date, query, page });
     }
     if (skipped) warnings.push(`${name}: skipped ${skipped} rows with missing or invalid metrics, dates, or URLs.`);
+    diagnostics.push(`${name}: recognized headings; ${skipped} invalid rows skipped.`);
   }
-  if (!queryRows.length && !pageRows.length && !dateRows.length) throw new Error('No supported performance rows found. Use a GSC CSV/XLSX export with Clicks, Impressions, and a Query/Top queries, Page/Top pages, or Date column.');
+  if (!queryRows.length && !pageRows.length && !dateRows.length) throw new Error(`No supported performance rows found. Use a GSC export with Clicks, Impressions, and Query/Top queries, Page/Top pages, or Date. ${diagnostics.slice(0, 3).join(' ')}`);
   // Exact duplicate rows within a report are ignored; independent dimensions remain separate.
   const dedupe = rows => [...new Map(rows.map(row => [JSON.stringify(row), row])).values()];
   const dates = [...queryRows, ...pageRows, ...dateRows].map(row => row.date).filter(Boolean).sort();
@@ -106,7 +153,12 @@ function cellValue(cell) {
 export const isPerformanceFile = name => /\.(csv|xlsx|zip)$/i.test(name);
 
 function decodeReportText(bytes) {
-  const encoding = bytes[0] === 255 && bytes[1] === 254 ? 'utf-16le' : bytes[0] === 254 && bytes[1] === 255 ? 'utf-16be' : 'utf-8';
+  // Some spreadsheet exports omit the UTF-16 BOM. ASCII header characters
+  // alternating with NUL bytes still identify the byte order reliably.
+  const sample = bytes.slice(0, 200);
+  const oddNulls = sample.filter((byte, index) => index % 2 === 1 && byte === 0).length;
+  const evenNulls = sample.filter((byte, index) => index % 2 === 0 && byte === 0).length;
+  const encoding = bytes[0] === 255 && bytes[1] === 254 || oddNulls > sample.length / 4 ? 'utf-16le' : bytes[0] === 254 && bytes[1] === 255 || evenNulls > sample.length / 4 ? 'utf-16be' : 'utf-8';
   return new TextDecoder(encoding).decode(bytes);
 }
 

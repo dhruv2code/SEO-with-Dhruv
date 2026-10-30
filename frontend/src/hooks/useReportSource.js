@@ -17,7 +17,7 @@ export function useReportSource(siteId) {
         const files = await listFiles(siteId), results = {};
         for (const file of files) {
           if (!isPerformanceFile(file.name)) { results[file.id] = { attachment: true }; continue; }
-          if (!cache.has(file.id)) cache.set(file.id, parseReportFile(file).then(report => ({ report })).catch(error => ({ error: error.message })));
+          if (!cache.has(file.id)) cache.set(file.id, parseReportFile(file).then(report => ({ report })).catch(error => { cache.delete(file.id); return { error: error.message }; }));
           results[file.id] = await cache.get(file.id);
         }
         if (!active) return;

@@ -57,3 +57,35 @@ test('ZIP rejects excessive CSV entries and is recognised as an importable repor
   for (const name of ['export.zip', 'EXPORT.ZIP', 'queries.csv', 'data.xlsx']) assert.ok(isPerformanceFile(name));
   assert.equal(isPerformanceFile('image.png'), false);
 });
+
+test('comparison ZIP pairs current metrics and excludes previous and difference columns', async () => {
+  const report = await parseReportFile(await archive({
+    'Queries.csv': 'Top queries,Previous 3 months Clicks,Last 3 months Impressions,Clicks Difference,Last 3 months Clicks,Previous 3 months Impressions,Last 3 months Position\nseo course,900,10000,-800,100,90000,8',
+    'Pages.csv': 'Top pages,Clicks (Last 3 months),Impressions (Last 3 months),Position (Last 3 months)\nhttps://thewallstreetschool.com/course,110,11000,7',
+  }));
+  const result = deriveReport(report, { start: '2026-08-01', end: '2026-10-30' }, 'daily');
+  assert.equal(result.current.clicks, 100);
+  assert.equal(result.current.impressions, 10000);
+  assert.equal(result.current.position, 8);
+  assert.equal(result.keywords[0].previousClicks, null);
+  assert.equal(result.pages[0].clicks, 110);
+  assert.ok(report.warnings.some(warning => warning.includes('showing Last 3 months')));
+});
+
+test('CSV detects delimiters after metadata and UTF-16 without a BOM', async () => {
+  for (const contents of [
+    'Search Console performance export\nTop queries;Clicks;Impressions;Position\nseo course;120;12000;6',
+    'sep=;\r\n"Top queries";"Clicks";"Impressions";"Position"\r\n"seo, course";120;12000;6',
+    Buffer.from('Top queries\tClicks\tImpressions\tPosition\r\nseo course\t120\t12000\t6', 'utf16le'),
+  ]) {
+    const report = await parseReportFile(await archive({ 'Queries.csv': contents }));
+    assert.equal(report.queryRows[0].clicks, 120);
+    assert.equal(report.queryRows[0].impressions, 12000);
+  }
+});
+
+test('incompatible comparison periods are rejected with actual heading diagnostics', async () => {
+  await assert.rejects(parseReportFile(await archive({
+    'Queries.csv': 'Top queries,Current Clicks,Previous Impressions\nseo course,100,90000',
+  })), error => error.message.includes('Queries.csv: headings') && error.message.includes('Current Clicks'));
+});

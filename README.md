@@ -85,7 +85,7 @@ Supported column names include `Top queries`, `Query`, or `Keyword`; `Top pages`
 
 A standard GSC Queries export contains full-period keyword totals, not daily keyword observations. Those totals are shown automatically, but keyword history and ranking changes remain unavailable. If Dates are included, overall daily charts are available. The date range stays on the full export when keyword rows are aggregated. Query-by-date exports support date filtering and equivalent previous-period comparisons when coverage is available.
 
-GSC exports do not contain GA4 traffic or conversion metrics. Those cards show unavailable values when an imported GSC report is active. Sample traffic is never mixed with imported search data. PDF, images, and legacy `.xls` files are attachments; export CSV or `.xlsx` for automatic analytics. Comparison exports with nonstandard, period-prefixed column names should be re-exported as a normal GSC report.
+GSC exports do not contain GA4 traffic or conversion metrics. Those cards show unavailable values when an imported GSC report is active. Sample traffic is never mixed with imported search data. PDF, images, and legacy `.xls` files are attachments; export CSV or `.xlsx` for automatic analytics. Comparison exports with period-prefixed or suffixed columns (for example, `Last 3 months Clicks`) are supported. The importer pairs metrics from the same period, prefers an explicitly current period, and identifies the selected period in the dashboard warnings. Previous-period and difference columns are excluded. A comparison export without daily dates provides totals, keywords, and pages; daily charts require a separate Dates/Chart export.
 
 ### Search Console ZIP exports
 
@@ -176,7 +176,7 @@ A production build checks all frontend route imports and JSX compilation.
 
 Phase 1 verification completed:
 
-- All 25 automated tests passed, including GSC XLSX/ZIP parsing, CSV quoting/encoding, missing fields, invalid rows, date comparisons, real-data gating, report-source validation, and report generation.
+- All 28 automated tests passed, including GSC XLSX/ZIP parsing, comparison column pairing, CSV quoting/encoding and metadata, missing fields, invalid rows, date comparisons, real-data gating, report-source validation, and report generation.
 - The production build passed. Vite reports large bundles for charts and ExcelJS; the Excel library is loaded only when Excel export is requested.
 - Headless Chrome loaded all ten views, including SEO Report Generator, without uncaught JavaScript exceptions.
 - Browser checks confirmed keyword tracking persists across reloads, keyword history opens, recommendation completion persists, and mobile navigation opens/closes.
